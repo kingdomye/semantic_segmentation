@@ -5,7 +5,6 @@ FCN: Fully Convolutional Network
 import torch
 import torch.nn as nn
 from torchvision import models
-from FCNDataset import VOCSegmentDataset
 
 import os
 os.environ["TORCH_HOME"] = "../../checkpoints"
@@ -92,3 +91,91 @@ class FCN8s(nn.Module):
 
 if __name__ == '__main__':
     fcn = FCN8s()
+    # 设为评估模式 (这对 Dropout 和 BatchNorm 很重要，虽然 VGG16 只有 Dropout)
+    fcn.eval()
+
+    from PIL import Image
+    import torchvision.transforms as transforms
+
+    test_input_image_file = '../../outputs/test.png'
+
+    # 1. 强制转换为 RGB (修复报错的核心)
+    test_input = Image.open(test_input_image_file).convert('RGB')
+
+    # 2. 预处理
+    # VGG16 预训练模型强依赖于标准化的输入 (mean/std)，
+    # 如果不加 Normalize，虽然不报错，但输出结果会完全不对。
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225])
+    ])
+
+    test_input = transform(test_input)
+
+    # 3. 增加 Batch 维度 [C, H, W] -> [1, C, H, W]
+    test_input = test_input.unsqueeze(0)
+
+    # 4. 前向传播
+    # 使用 no_grad 节省内存
+    with torch.no_grad():
+        test_output = fcn(test_input)
+
+    print(f"Input shape: {test_input.shape}")
+    print(f"Output shape: {test_output.shape}")
+
+    # 可视化在一张图中
+    from matplotlib import pyplot as plt
+
+    # ==========================================
+    # 1. 处理输入图 (反归一化)
+    # ==========================================
+    # 取出 batch 中的第一张图: [1, 3, H, W] -> [3, H, W]
+    img_tensor = test_input[0].cpu()
+
+    # 定义归一化参数 (必须和你 transform 中用的一致)
+    mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+
+    # 反归一化: original = normalized * std + mean
+    img_vis = img_tensor * std + mean
+
+    # 限制数值在 [0, 1] 之间 (防止 matplotlib 报 clipping 警告)
+    img_vis = torch.clamp(img_vis, 0, 1)
+
+    # 转换维度适应 matplotlib: [3, H, W] -> [H, W, 3]
+    img_vis = img_vis.permute(1, 2, 0).numpy()
+
+    # ==========================================
+    # 2. 处理输出图 (Argmax 获取类别)
+    # ==========================================
+    # test_output shape: [1, 21, H, W]
+    # 在第1个维度(channel)上取最大值的索引 -> 变成 [1, H, W]
+    pred_mask = test_output.argmax(dim=1)
+
+    # 降维转 numpy: [1, H, W] -> [H, W]
+    pred_mask = pred_mask.squeeze().cpu().numpy()
+
+    # ==========================================
+    # 3. 画图 (左右对比)
+    # ==========================================
+    plt.figure(figsize=(12, 6))
+
+    # 左边画原图
+    plt.subplot(1, 2, 1)
+    plt.title("Input Image")
+    plt.imshow(img_vis)
+    plt.axis('off')  # 不显示坐标轴
+
+    # 右边画预测结果
+    plt.subplot(1, 2, 2)
+    plt.title("Prediction Mask")
+
+    # cmap='tab20' 适合显示分类索引 (每个整数一种颜色)
+    # vmin=0, vmax=20 确保颜色映射范围固定在 VOC 的 21 个类别内
+    plt.imshow(pred_mask, cmap='tab20', vmin=0, vmax=20)
+    plt.colorbar(label='Class Index')  # 显示颜色对应的类别ID
+    plt.axis('off')
+
+    plt.tight_layout()
+    plt.show()

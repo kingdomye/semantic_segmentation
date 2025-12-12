@@ -42,7 +42,7 @@ class VOCSegmentDataset(Dataset):
         if self.transform:
             image, label = self.transform(image, label)
 
-        return image, label
+        return image.float(), label
 
 
 def get_transform(train=True):
@@ -69,7 +69,7 @@ def get_transform(train=True):
 
 
 if __name__ == '__main__':
-    root = '../../datasets/VOC2012'
+    root = '../datasets/VOC2012'
     img_transform = get_transform(train=True)
 
     ds = VOCSegmentDataset(root, transform=img_transform)
