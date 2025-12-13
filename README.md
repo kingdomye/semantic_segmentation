@@ -43,6 +43,19 @@ A PyTorch-based semantic segmentation project implementing multiple classic mode
 **⚙️ Parameters**:
 - `num_classes`: Number of segmentation classes
 
+### 3. U2Net
+> A deep convolutional neural network for salient object detection.
+
+![U2Net Architecture](./src/UNet/Architecture_Diagram.png)
+
+**✨ Key Features**:
+- **Encoder**: 4-layer convolutional network with ReLU activation and max pooling for downsampling
+- **Decoder**: 4-layer transposed convolutional network for upsampling
+- **Skip connections**: Concatenates encoder feature maps with corresponding decoder layers to preserve spatial information
+
+**⚙️ Parameters**:
+- `num_classes`: Number of segmentation classes
+
 ---
 
 ## 📂 Datasets
@@ -70,6 +83,15 @@ The SOD dataset is used for salient object detection tasks, containing numerous 
 **Directory Structure**:
 ```text
 SOD/ 
+└── Gt/                  # Ground truth salient object masks
+```
+
+### ECSSD (Enhanced CSSD)
+The Enhanced CSSD dataset is a dataset for salient object detection tasks, containing numerous annotated salient object images.
+
+**Directory Structure**:
+```text
+ECSSD/ 
 └── Gt/                  # Ground truth salient object masks
 ```
 
